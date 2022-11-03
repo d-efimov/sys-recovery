@@ -1,5 +1,17 @@
 #!/usr/bin/env bash
 
+# ------ [ System Recovery Utility ] -----
+# ----------------------------------------
+#        shell command line utility
+#      project source code repository:
+# https://github.com/d-efimov/sys-recovery
+# open source software © 2022 Denis Efimov
+# ----------------------------------------
+
+# -------------- [ SCRIPT ] --------------
+#        software deployment script
+# ----------------------------------------
+
 # set directories paths
 mountDir="/media/recovery";
 moduleDir='src/modules';
@@ -37,7 +49,7 @@ done
 [ -d "$distDir" ] || exitProc "$distDir not found" 1;
 uuid="$(cat "$distDir/${files[uuid]}" 2> /dev/null)";
 usbDev="$(deviceByUuid "$uuid")";
-[ -b "$usbDev" ] || exitProc "$usbDev not found" 1;
+[ -b "$usbDev" ] || exitProc "$usbDev device not found" 1;
 
 # mount usb drive
 if ! [ -d "$mountDir" ]; then

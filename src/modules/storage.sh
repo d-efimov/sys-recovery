@@ -14,7 +14,7 @@
 
 # mount storage drive
 function mountStorage {
-    declare -a devices;
+    declare -A devices;
 
     # set external drive uuid
     local uuidFilePath;
@@ -36,7 +36,7 @@ function mountStorage {
 
         if [ "${extPlatformRef[recovery]}" == "$extDriveUuid" ]; then
             # set external drive partition
-            devices+=("$(deviceByUuid "${extPlatformRef[store]}")");
+            devices[store]="$(deviceByUuid "${extPlatformRef[store]}")";
 
             # set external drive device name
             storages[extName]="${extPlatformRef[name]}";
@@ -66,9 +66,9 @@ function mountStorage {
 
         if [ "${intPlatformRef[hw]}" == "$intDrivePlatform" ]; then
             # set internal drive partition
-            devices+=("$(deviceByUuid "${intPlatformRef[root]}")");
-            devices+=("$(deviceByUuid "${intPlatformRef[boot]}")");
-            devices+=("$(deviceByUuid "${intPlatformRef[home]}")");
+            devices[root]="$(deviceByUuid "${intPlatformRef[root]}")";
+            devices[boot]="$(deviceByUuid "${intPlatformRef[boot]}")";
+            devices[home]="$(deviceByUuid "${intPlatformRef[home]}")";
 
             # set internal drive device name
             storages[intName]="${intPlatformRef[name]}";
@@ -102,23 +102,19 @@ function mountStorage {
             exitProcess "${mounts[root]} ${err[FAIL_DIR_CREATE]}" 1;
     fi
 
-    # mount external ans internal drive
-    local index;
-    for index in "${!devices[@]}"
+    # mount external and internal drive
+    local name;
+    for name in "${mountOrder[@]}"
     do
-        declare -a names=('store' 'root' 'boot' 'home');
-        local name;
-        name="${names[$index]}";
-
         local fs;
         [ "$name" == 'boot' ] && fs='vfat' || fs='ext4';
 
-        [ -b "${devices[$index]}" ] || exitProcess "${devices[$index]} ${err[DEV_NOT_FOUND]}" 1;
+        [ -b "${devices[$name]}" ] || exitProcess "${devices[$name]} ${err[DEV_NOT_FOUND]}" 1;
 
         local srcTarget;
-        srcTarget="${devices[$index]} ${mounts[$name]}";
+        srcTarget="${devices[$name]} ${mounts[$name]}";
         if ! [ "$(findmnt -o SOURCE,TARGET "${mounts[$name]}" 2> /dev/null | grep -q "$srcTarget")" ]; then
-            sudo mount -o rw -t "$fs" "${devices[$index]}" "${mounts[$name]}" 2> /dev/null ||
+            sudo mount -o rw -t "$fs" "${devices[$name]}" "${mounts[$name]}" 2> /dev/null ||
                 exitProcess "${mounts[$name]} ${err[FAIL_PART_MOUNT]}" 1;
         fi
     done

@@ -59,10 +59,10 @@ declare -ga intPlatforms=(
 
 # internal notebook platform
 declare -gA notebook=(
-    [hw]=''
-    [root]=''
-    [boot]=''
-    [home]=''
+    [hw]='6bb29f2e1e1f4a2e82d57f5db07b46aa'
+    [root]='0e7cf068-09c9-42cc-b9de-d8b83633bd0e'
+    [boot]='3769-DEF8'
+    [home]='d3f0279b-a740-48cc-a118-83666b828c85'
     [user]=1000
     [name]='SATA Hard Drive Disk'
 );
@@ -84,6 +84,14 @@ declare -gA vm=(
     [home]='3724792d-829c-4c39-9831-573a762ca9ab'
     [user]=1000
     [name]='Virtual Hard Drive Disk'
+);
+
+# mount order
+declare -ga mountOrder=(
+    'store'
+    'root'
+    'boot'
+    'home'
 );
 
 # mount points

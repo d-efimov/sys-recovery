@@ -1,5 +1,17 @@
 #!/usr/bin/env bash
 
+# ------ [ System Recovery Utility ] -----
+# ----------------------------------------
+#        shell command line utility
+#      project source code repository:
+# https://github.com/d-efimov/sys-recovery
+# open source software © 2022 Denis Efimov
+# ----------------------------------------
+
+# -------------- [ SCRIPT ] --------------
+#           software build script
+# ----------------------------------------
+
 # set directories paths
 distDir='dist';
 srcDir='src';
