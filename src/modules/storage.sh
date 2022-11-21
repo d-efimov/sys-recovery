@@ -7,7 +7,7 @@
 # https://github.com/d-efimov/sys-recovery
 # open source software © 2022 Denis Efimov
 # ----------------------------------------
-
+#
 # -------------- [ MODULE ] --------------
 #           storage drive actions
 # ----------------------------------------
@@ -39,7 +39,7 @@ function mountStorage {
             devices[store]="$(deviceByUuid "${extPlatformRef[store]}")";
 
             # set external drive device name
-            storages[extName]="${extPlatformRef[name]}";
+            storageDevs[ext]="${extPlatformRef[name]}";
 
             break;
         fi
@@ -47,7 +47,7 @@ function mountStorage {
         unset -n extPlatformRef;
     done
 
-    if [ ${#devices[@]} -ne 1 ] || [ ${#storages[@]} -ne 1 ]; then
+    if [ ${#devices[@]} -ne 1 ] || [ ${#storageDevs[@]} -ne 1 ]; then
         exitProcess "$extDriveUuid ${err[HARDWARE_NOT_FOUND]}" 1;
     fi
 
@@ -71,7 +71,7 @@ function mountStorage {
             devices[home]="$(deviceByUuid "${intPlatformRef[home]}")";
 
             # set internal drive device name
-            storages[intName]="${intPlatformRef[name]}";
+            storageDevs[int]="${intPlatformRef[name]}";
 
             # set internal drive hardware name
             local hw;
@@ -87,7 +87,7 @@ function mountStorage {
         unset -n intPlatformRef;
     done
 
-    if [ ${#devices[@]} -ne 4 ] || [ ${#storages[@]} -ne 2 ] || [ -z "$hw" ]; then
+    if [ ${#devices[@]} -ne 4 ] || [ ${#storageDevs[@]} -ne 2 ] || [ -z "$hw" ]; then
         exitProcess "$intDrivePlatform ${err[HARDWARE_NOT_FOUND]}" 1;
     fi
 
@@ -113,23 +113,23 @@ function mountStorage {
 
         local srcTarget;
         srcTarget="${devices[$name]} ${mounts[$name]}";
-        if ! [ "$(findmnt -o SOURCE,TARGET "${mounts[$name]}" 2> /dev/null | grep -q "$srcTarget")" ]; then
+        if ! [ "$(findmnt -o SOURCE,TARGET "${mounts[$name]}" 2> /dev/null | grep "$srcTarget")" ]; then
             sudo mount -o rw -t "$fs" "${devices[$name]}" "${mounts[$name]}" 2> /dev/null ||
                 exitProcess "${mounts[$name]} ${err[FAIL_PART_MOUNT]}" 1;
         fi
     done
 
     # set user rights
-    storages[user]="$(find "${mounts[home]}" -maxdepth 1 -type d -uid $user -print 2> /dev/null)";
-    [ -d "${storages[user]}" ] || exitProcess "${storages[user]} $DIR_NOT_FOUND" 1;
-    sudo chmod o+rx "${storages[user]}" 2> /dev/null ||
-        exitProcess "${storages[user]} ${err[FAIL_CHANGE_RIGHTS]}" 1;
+    storagePaths[user]="$(find "${mounts[home]}" -maxdepth 1 -type d -uid $user -print 2> /dev/null)";
+    [ -d "${storagePaths[user]}" ] || exitProcess "${storagePaths[user]} ${err[DIR_NOT_FOUND]}" 1;
+    sudo chmod o+rx "${storagePaths[user]}" 2> /dev/null ||
+        exitProcess "${storagePaths[user]} ${err[FAIL_CHANGE_RIGHTS]}" 1;
 
     # set storage paths
-    storages[extPath]="${paths[ext]//\[hw\]/$hw/}";
-    storages[intPath]="${paths[int]//\[user\]/${storages[user]}/}";
-    [ -d "${storages[extPath]}" ] || exitProcess "${storages[extPath]} ${err[DIR_NOT_FOUND]}" 1;
-    [ -d "${storages[intPath]}" ] || exitProcess "${storages[intPath]} ${err[DIR_NOT_FOUND]}" 1;
+    storagePaths[ext]="${paths[ext]//\[hw\]/$hw/}";
+    storagePaths[int]="${paths[int]//\[user\]/${storagePaths[user]}/}";
+    [ -d "${storagePaths[ext]}" ] || exitProcess "${storagePaths[ext]} ${err[DIR_NOT_FOUND]}" 1;
+    [ -d "${storagePaths[int]}" ] || exitProcess "${storagePaths[int]} ${err[DIR_NOT_FOUND]}" 1;
 }
 
 # unmount storage drive
@@ -137,7 +137,7 @@ function unmountStorage {
     cd "$cwd" 2> /dev/null;
 
     # restore user rights
-    [ -d "${storages[user]}" ] && sudo chmod o-rx "${storages[user]}" 2> /dev/null;
+    [ -d "${storagePaths[user]}" ] && sudo chmod o-rx "${storagePaths[user]}" 2> /dev/null;
 
     # unmount external drive
     if [ -d "${mounts[store]}" ]; then
@@ -155,43 +155,68 @@ function unmountStorage {
 # select storage drive
 function selectStorage {
     # display storage selection dialog
-    local selectedStorage;
-
     if [ -z "$1" ]; then
-        displayHeader 'Select Storage Drive';
-        selectedStorage="$(readInput '')";
+        local index;
+        local size;
+        local type;
+        local name;
+        displayHeader "${actionHeaders[storage]}";
+
+        for index in "${!storageOrder[@]}"
+        do
+
+            if [ "${storageOrder[$index]}" != 'both' ]; then
+                size="$(getFreeSpace "${storagePaths[${storageOrder[$index]}]}") ${displayMsg[GB_FREE]}\t";
+                type="${storageTypes[${storageOrder[$index]}]}\t";
+                name="${storageDevs[${storageOrder[$index]}]}";
+            else
+                size="\t\t";
+                type=$size;
+                name="${storageTypes[${storageOrder[$index]}]}";
+            fi
+
+            echo -e "$(displayIndex "$index")${type}${size}${name}";
+        done
+
+        displayDelimiter;
+        echo -e "$(displayByDefault)${storageTypes[${storageOrder[${appDefaults[storage]}]}]} [ ${appDefaults[storage]} ]";
+        echo -e "\n${appDefaults[padding]}${displayMsg[USED_STORAGE]} $(displaySelectedDrive)";
+        local selectedStorage;
+        selectedStorage="$(readInput "$(displaySelectPrompt)")";
     else
         selectedStorage="$1";
     fi
 
+    if ! [[ "$selectedStorage" =~ ^[0-9]+$ ]] || [ $selectedStorage -ge ${#storageOrder[@]} ]; then
+        displaySelectWarnMsg;
+        selectedStorage="${appDefaults[storage]}";
+    fi
+
     # set selected storage
-    storagePaths=();
-    storageNames=();
+    selectedStorage="${storageOrder[$selectedStorage]}";
+    storages=();
 
     case $selectedStorage in
-        1)
+        'ext')
             # external drive
-            storagePaths[ext]="${storages[extPath]}";
-            storageNames[ext]="${storages[extName]}";
+            storages[ext]="${storageDevs[ext]}";
         ;;
 
-        2)
+        'int')
             # internal drive
-            storagePaths[int]="${storages[intPath]}";
-            storageNames[int]="${storages[intName]}";
+            storages[int]="${storageDevs[int]}";
         ;;
 
-        *)
+        'both')
             # both external and internal drive
-            storagePaths[ext]=("${storages[extPath]}");
-            storagePaths[int]=("${storages[intPath]}");
-            storageNames[ext]="${storages[extName]}";
-            storageNames[int]="${storages[intName]}";
+            storages[ext]="${storageDevs[ext]}";
+            storages[int]="${storageDevs[int]}";
         ;;
     esac
 
     if [ -z "$1" ]; then
-        displayFooter '';
+        echo -e "\n${appDefaults[padding]}${displayMsg[SELECTED_STORAGE]} $(displaySelectedDrive)";
+        displayFooter "${actionHeaders[storage]}" ${displayMsg[IS_SUCCESS]};
     fi
 }
 

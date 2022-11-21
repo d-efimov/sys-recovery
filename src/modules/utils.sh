@@ -7,7 +7,7 @@
 # https://github.com/d-efimov/sys-recovery
 # open source software © 2022 Denis Efimov
 # ----------------------------------------
-
+#
 # -------------- [ MODULE ] --------------
 #          common utils functions
 # ----------------------------------------
@@ -37,15 +37,39 @@ function deviceByUuid {
 
 # exit from process
 function exitProcess {
-    # unmount storage drive
-    unmountStorage;
-
-    # display error message
-    clear;
-    [ -n "$1" ] && echo "$1";
-
-    # exit from process
+    # set error code
     local code;
-    [ -z "$2" ] && code=0 || code="$2";
-    exit "$code";
+    [ -z "$2" ] && code=2 || code="$2";
+
+    # display exit message
+    local setExit;
+
+    case $code in
+        0)
+            displayHeader "${actionHeaders[exit]}";
+            echo -e "${appDefaults[padding]}${displayMsg[WANT_EXIT]}";
+            setExit="$(readInput "$(displayExitPrompt)")";
+        ;;
+        1)
+            clear;
+            displayHeader "${actionHeaders[error]}";
+            local defaultMsg="${appDefaults[padding]} ${displayMsg[APP_ERROR]}";
+            [ -n "$1" ] && echo -e "${appDefaults[padding]}$1\n" || echo -e "$defaultMsg\n";
+        ;;
+        2)
+            clear;
+            displayHeader "${actionHeaders[exit]}";
+            echo -e "${appDefaults[padding]}${displayMsg[PRESS_BREAK]}"
+        ;;
+    esac
+
+    # exit or continue
+    if [ -z "$setExit" ]; then
+        [ $code -ne 1 ] && echo -e "\n${appDefaults[padding]}exit...";
+        unmountStorage;
+        [ $code -ne 1 ] && clear;
+        exit "$code";
+    else
+        displayFooter "${actionHeaders[exit]}" ${displayMsg[IS_CANCEL]};
+    fi
 }

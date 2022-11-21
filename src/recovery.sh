@@ -7,7 +7,7 @@
 # https://github.com/d-efimov/sys-recovery
 # open source software © 2022 Denis Efimov
 # ----------------------------------------
-
+#
 # -------------- [ MODULE ] --------------
 #           command line utility
 # ----------------------------------------
@@ -44,6 +44,10 @@ function init {
     done
 } && init;
 
+# set dark theme
+gsettings set org.gnome.desktop.interface gtk-theme Adwaita-dark;
+gsettings set org.gnome.desktop.interface color-scheme prefer-dark;
+
 # set signal handler
 trap exitProcess SIGINT;
 
@@ -51,49 +55,64 @@ trap exitProcess SIGINT;
 mountStorage;
 
 # select storage drive
-selectStorage "$defaultStorage";
+selectStorage "${appDefaults[storage]}";
 
 # utility action list
 while true
 do
     # display actions selection dialog
     clear;
-    displayHeader "$appName";
-    selectedAction="$(readInput '')";
+    displayHeader "${actionHeaders[action]}";
+
+    for index in "${!actionOrder[@]}"
+    do
+        echo -e "$(displayIndex "$index")${actionHeaders[${actionOrder[$index]}]}";
+    done
+
+    displayDelimiter;
+    echo -e "$(displayByDefault)${actionHeaders[${actionOrder[${appDefaults[action]}]}]} [ ${appDefaults[action]} ]";
+    selectedAction="$(readInput "$(displaySelectPrompt)")";
+
+    if ! [[ "$selectedAction" =~ ^[0-9]+$ ]] || [ $selectedAction -ge ${#actionOrder[@]} ]; then
+        displaySelectWarnMsg;
+        selectedAction="${appDefaults[action]}";
+        sleep ${appDefaults[timeout]};
+    fi
     clear;
 
     # execute selected action
+    selectedAction="${actionOrder[$selectedAction]}";
     case $selectedAction in
-        1)
+        'backup')
+            # create system backup
+            createBackup;
+        ;;
+
+        'restore')
             # restore system backup
             restoreBackup;
         ;;
 
-        2)
+        'remove')
             # remove system backup
             removeBackup;
         ;;
 
-        3)
+        'copy')
             # copy system backup
             copyBackup;
         ;;
 
-        4)
+        'storage')
             # select storage drive
             selectStorage;
         ;;
 
-        5)
+        'exit')
             # exit from process
-            exitProcess;
-        ;;
-
-        *)
-            # create system backup
-            createBackup;
+            exitProcess '' 0;
         ;;
     esac
 
-    sleep $displayTimeout;
+    sleep ${appDefaults[timeout]};
 done

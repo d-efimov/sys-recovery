@@ -7,16 +7,15 @@
 # https://github.com/d-efimov/sys-recovery
 # open source software © 2022 Denis Efimov
 # ----------------------------------------
-
+#
 # -------------- [ MODULE ] --------------
 #       configuration data structures
 # ----------------------------------------
 
 # global runtime variables
-declare -g cwd;
 declare -gA storages;
 declare -gA storagePaths;
-declare -gA storageNames;
+declare -gA storageDevs;
 
 # error messages
 declare -gA err=(
@@ -77,6 +76,7 @@ declare -gA desktop=(
     [name]='NVMe Solid-State Drive'
 );
 
+# internal virtual platform
 declare -gA vm=(
     [hw]='91303e3ef8e64b8dbea461642ef5e7f5'
     [root]='38ccd535-396b-444c-adcc-c55f6fd6c2ca'
@@ -95,16 +95,18 @@ declare -ga mountOrder=(
 );
 
 # mount points
+local intStore='/media/int-store';
+local extStore='/media/ext-store';
 declare -gA mounts=(
-    [root]='/media/int-store'
-    [boot]="/media/int-store/boot/efi"
-    [home]="/media/int-store/home"
-    [store]='/media/ext-store'
+    [store]="$extStore"
+    [root]="$intStore"
+    [boot]="$intStore/boot/efi"
+    [home]="$intStore/home"
 );
 
 # file paths
 declare -gA paths=(
-    [ext]="${mounts[store]}/[hw]"
+    [ext]="$extStore/[hw]"
     [int]="[user]/backup"
 );
 
@@ -117,9 +119,65 @@ declare -gA files=(
     [broken]='broken'
 );
 
-# selected storage
-declare -g defaultStorage=3;
+# application defaults
+declare -gA appDefaults=(
+    [title]='--------------------------[ System Recovery Utility ]--------------------------'
+    [storage]=2
+    [timeout]=3
+    [action]=0
+    [headDelim]='-----------------------------------------------------------------------'
+    [padding]="    "
+)
 
-# display settings
-declare -g appName='System Recovery Utility';
-declare -g displayTimeout=4;
+# action headers
+declare -gA actionHeaders=(
+    [backup]='create system backup'
+    [restore]='restore system backup'
+    [remove]='remove system backup'
+    [copy]='copy system backup'
+    [storage]='select storage drive'
+    [exit]='exit from application'
+    [error]='application error'
+    [action]='select action'
+);
+
+# action order
+declare -ga actionOrder=(
+    'backup'
+    'restore'
+    'remove'
+    'copy'
+    'storage'
+    'exit'
+);
+
+# storage order
+declare -ga storageOrder=(
+    'ext'
+    'int'
+    'both'
+);
+
+# storage type
+declare -gA storageTypes=(
+    [ext]='external'
+    [int]='internal'
+    [both]='external and internal drive'
+);
+
+# storage order
+declare -gA displayMsg=(
+    [SET_SELECT]='type number and press enter for selection'
+    [SELECTED_STORAGE]='selected storage:'
+    [USED_STORAGE]='currently used storage:'
+    [SET_DESCR]='type description and press enter'
+    [SET_EXIT]='type n for continue or press enter to exit'
+    [WANT_EXIT]='do you want to exit from application?'
+    [WARN_SELECT]='incorrect selection, default value will be used'
+    [APP_ERROR]='application error'
+    [PRESS_BREAK]='pressing break key combination'
+    [BY_DEFAULT]='by default'
+    [IS_SUCCESS]='successful'
+    [IS_CANCEL]='canceled'
+    [GB_FREE]='GB free'
+);
