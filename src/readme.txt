@@ -1,24 +1,16 @@
 
- ------ [ System Recovery Utility ] -----
- ----------------------------------------
-        shell command line utility
-      project source code repository:
- https://github.com/d-efimov/sys-recovery
- open source software © 2022 Denis Efimov
- ----------------------------------------
+  ------------------------ [ System Recovery Utility ] ------------------------
+    Shell script command line utility used for system backup and restore.
+    Project source code repository: https://github.com/d-efimov/sys-recovery
+                   Open source software  ©  2022 Denis Efimov.
+  -----------------------------------------------------------------------------
 
- -------------- [ CAUTION ] -------------
-    THIS SOFTWARE MAY DESTROY YOUR DATA
-    USE IT CORRECTLY AND WITH CAREFULLY
- ----------------------------------------
+  --------------------------------- [ USAGE ] ---------------------------------
+    Open terminal emulator in current directory and run file: ./recovery.sh,
+    then follow the utility instructions.
+  -----------------------------------------------------------------------------
 
- -------------- [ WARNING ] -------------
-     runs recovery utility only after
-      booting os from live usb drive
- ----------------------------------------
-
- --------------- [ USAGE ] --------------
-     open terminal emulator in current
-  directory and run file: ./recovery.sh,
-   then follow the utility instructions
- ----------------------------------------
+  ------------- [ CAUTION ] -------------  ------------ [ WARNING ] -----------
+    THIS SOFTWARE MAY DESTROY YOUR DATA      runs recovery utility only after
+    USE IT CORRECTLY AND WITH CAREFULLY       booting os from live usb drive
+  ---------------------------------------  ------------------------------------

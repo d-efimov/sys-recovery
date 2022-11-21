@@ -7,7 +7,7 @@
 # https://github.com/d-efimov/sys-recovery
 # open source software © 2022 Denis Efimov
 # ----------------------------------------
-
+#
 # -------------- [ SCRIPT ] --------------
 #        software deployment script
 # ----------------------------------------
@@ -57,7 +57,7 @@ if ! [ -d "$mountDir" ]; then
 fi
 
 srcTarget="$usbDev $mountDir";
-if ! [ "$(findmnt -o SOURCE,TARGET "$srcTarget" 2> /dev/null | grep -q "$mount")" ]; then
+if ! [ "$(findmnt -o SOURCE,TARGET "$srcTarget" 2> /dev/null | grep "$mount")" ]; then
     sudo mount -o rw -t ext4 "$usbDev" "$mountDir" 2> /dev/null ||
         exitProc "$mountDir filed to mount dir" 1;
 fi
