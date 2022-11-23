@@ -7,6 +7,7 @@ Shell command line utility runs from Ubuntu Linux live usb drive and used for sy
 - restore system backup from storage drive
 - remove system backup from storage drive
 - copy system backup between storage drives
+- display system backup list
 - select external or internal storage drive
 
 ### Requirements

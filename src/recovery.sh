@@ -62,6 +62,7 @@ while true
 do
     # display actions selection dialog
     clear;
+    displayTitle;
     displayHeader "${actionHeaders[action]}";
 
     for index in "${!actionOrder[@]}"
@@ -70,9 +71,10 @@ do
     done
 
     displayDelimiter;
-    echo -e "$(displayByDefault)${actionHeaders[${actionOrder[${appDefaults[action]}]}]} [ ${appDefaults[action]} ]";
+    echo -e "$(displayByDefault)${actionHeaders[${actionOrder[${appDefaults[action]}]}]} $(displayDefaultNum "${appDefaults[action]}")";
     selectedAction="$(readInput "$(displaySelectPrompt)")";
 
+    # set default value
     if ! [[ "$selectedAction" =~ ^[0-9]+$ ]] || [ $selectedAction -ge ${#actionOrder[@]} ]; then
         displaySelectWarnMsg;
         selectedAction="${appDefaults[action]}";
@@ -103,6 +105,11 @@ do
             copyBackup;
         ;;
 
+        'list')
+            # display system backup list
+            listBackups;
+        ;;
+
         'storage')
             # select storage drive
             selectStorage;
@@ -113,6 +120,4 @@ do
             exitProcess '' 0;
         ;;
     esac
-
-    sleep ${appDefaults[timeout]};
 done

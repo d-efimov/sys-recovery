@@ -24,9 +24,15 @@ declare -gA err=(
     [DEV_NOT_FOUND]='device not found'
     [HARDWARE_NOT_FOUND]='hardware not found'
     [FAIL_DIR_CREATE]='failed to create directory'
+    [FAIL_FILE_WRITE]='failed to write file'
+    [FAIL_FILE_READ]='failed to read file'
     [FAIL_PART_MOUNT]='failed to mount partition'
     [FAIL_CHANGE_DIR]='failed to change directory'
     [FAIL_CHANGE_RIGHTS]='failed to change user rights'
+    [FAIL_BACKUP_CREATE]='failed to create backup'
+    [FAIL_BACKUP_COPY]='failed to copy backup'
+    [FAIL_HASH_CACL]='failed to calculate checksum'
+    [FAIL_HASH_VERIFY]='failed to verify checksum'
 );
 
 # external hardware platforms
@@ -113,7 +119,8 @@ declare -gA paths=(
 # file names
 declare -gA files=(
     [uuid]='uuid'
-    [backup]='system-backup.tar.bz2'
+    [root]='root-backup.tar.bz2'
+    [home]='home-backup.tar.bz2'
     [descr]='descr.txt'
     [checksum]='checksum.sha256'
     [broken]='broken'
@@ -121,7 +128,7 @@ declare -gA files=(
 
 # application defaults
 declare -gA appDefaults=(
-    [title]='--------------------------[ System Recovery Utility ]--------------------------'
+    [title]='    --------------------- [ System Recovery Utility ] ---------------------    '
     [storage]=2
     [timeout]=3
     [action]=0
@@ -136,9 +143,12 @@ declare -gA actionHeaders=(
     [remove]='remove system backup'
     [copy]='copy system backup'
     [storage]='select storage drive'
+    [drive]='drives list'
+    [list]='display system backup list'
     [exit]='exit from application'
     [error]='application error'
     [action]='select action'
+    [detail]='backup detail'
 );
 
 # action order
@@ -147,6 +157,7 @@ declare -ga actionOrder=(
     'restore'
     'remove'
     'copy'
+    'list'
     'storage'
     'exit'
 );
@@ -165,19 +176,76 @@ declare -gA storageTypes=(
     [both]='external and internal drive'
 );
 
-# storage order
-declare -gA displayMsg=(
-    [SET_SELECT]='type number and press enter for selection'
-    [SELECTED_STORAGE]='selected storage:'
-    [USED_STORAGE]='currently used storage:'
-    [SET_DESCR]='type description and press enter'
-    [SET_EXIT]='type n for continue or press enter to exit'
+# exclude root file system backup paths
+declare -gA excludeRoot=(
+    [home]='[home]/*'
+    [var]='var/cache/apt/archives/*'
+    [tmp]='tmp/*'
+    [swap]='swapfile'
+);
+
+# exclude home folder backup paths
+declare -gA excludeHome=(
+    [current]='.'
+    [parent]='..'
+    [cache]='.cache/*'
+    [trash]='.local/share/Trash/*'
+);
+
+# explain messages
+declare -gA explainMsgs=(
+    [backup]='backup all files in root, efi partitions and hidden files in home dir'
+    [restore]='remove current system and restore from backup, except files in home dir'
+    [remove]='remove selected backup from storage drive'
+    [copy]='copy selected backup between storage drives'
+    [storage]='select storage drives to create, restore and display backup list'
+    [list]='list all available backups on selected storage drives'
+    [exit]='unmount storage drives, exit from recovery utility'
+)
+
+# common application messages
+declare -gA commonMsgs=(
+    [SET_SELECT]='type n for return or type number and press enter for selection'
+    [SET_RETURN]='type n for return or press enter to continue'
+    [SET_CONFIRM]='type y for confirm or press enter to return'
     [WANT_EXIT]='do you want to exit from application?'
     [WARN_SELECT]='incorrect selection, default value will be used'
-    [APP_ERROR]='application error'
+    [APP_ERROR]='runtime application error'
     [PRESS_BREAK]='pressing break key combination'
     [BY_DEFAULT]='by default'
     [IS_SUCCESS]='successful'
     [IS_CANCEL]='canceled'
-    [GB_FREE]='GB free'
-);
+    [IS_COPIED]='copy backup to'
+    [PRESS_ENTER]='press enter to continue'
+)
+
+# storage action messages
+declare -gA storageMsgs=(
+    [SELECTED_STORAGE]='selected storage'
+    [USED_STORAGE]='currently used storage'
+    [GB_FREE]='free GB'
+)
+
+# backup action messages
+declare -gA backupMsgs=(
+    [SET_DESCR]='type description and press enter'
+    [BE_COPIED]='after creation backup will be copied to'
+    [NO_DESCR]='description not specified'
+    [IN_PROGRESS]='backup current system'
+    [CALC_HASH]='calculate backup checksum'
+)
+
+# backup detail messages
+declare -gA detailMsgs=(
+    [PATH]='path'
+    [NAME]='name'
+    [FILE]='files'
+    [STORAGE]='storage'
+    [CONTENT]='descr'
+)
+
+# verify hash messages
+declare -gA hashMsgs=(
+    [IS_BROKEN]='backup is broken'
+    [VERIFY]='verify backup checksum'
+)

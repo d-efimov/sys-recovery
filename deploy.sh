@@ -43,13 +43,13 @@ do
 done
 
 # build software
-./build.sh 'usbFlash' || exitProc "filed to build software" 1;
+./build.sh 'usbHdd' || exitProc "filed to build software" 1;
 
 # set usb drive
 [ -d "$distDir" ] || exitProc "$distDir not found" 1;
 uuid="$(cat "$distDir/${files[uuid]}" 2> /dev/null)";
 usbDev="$(deviceByUuid "$uuid")";
-[ -b "$usbDev" ] || exitProc "$usbDev device not found" 1;
+[ -b "$usbDev" ] || exitProc "$uuid device not found" 1;
 
 # mount usb drive
 if ! [ -d "$mountDir" ]; then

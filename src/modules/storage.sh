@@ -126,10 +126,18 @@ function mountStorage {
         exitProcess "${storagePaths[user]} ${err[FAIL_CHANGE_RIGHTS]}" 1;
 
     # set storage paths
-    storagePaths[ext]="${paths[ext]//\[hw\]/$hw/}";
-    storagePaths[int]="${paths[int]//\[user\]/${storagePaths[user]}/}";
-    [ -d "${storagePaths[ext]}" ] || exitProcess "${storagePaths[ext]} ${err[DIR_NOT_FOUND]}" 1;
-    [ -d "${storagePaths[int]}" ] || exitProcess "${storagePaths[int]} ${err[DIR_NOT_FOUND]}" 1;
+    storagePaths[ext]="${paths[ext]/\[hw\]/$hw}";
+    storagePaths[int]="${paths[int]/\[user\]/${storagePaths[user]}}";
+
+    if ! [ -d "${storagePaths[ext]}" ]; then
+        sudo mkdir "${storagePaths[ext]}" 2> /dev/null ||
+            exitProcess "${storagePaths[ext]} ${err[FAIL_DIR_CREATE]}" 1;
+    fi
+
+    if ! [ -d "${storagePaths[int]}" ]; then
+        sudo mkdir "${storagePaths[int]}" 2> /dev/null ||
+            exitProcess "${storagePaths[int]} ${err[FAIL_DIR_CREATE]}" 1;
+    fi
 }
 
 # unmount storage drive
@@ -160,13 +168,16 @@ function selectStorage {
         local size;
         local type;
         local name;
+        displayTitle;
         displayHeader "${actionHeaders[storage]}";
+        displayExplain "${explainMsgs[storage]}";
+        displayHeader "${actionHeaders[drive]}";
 
         for index in "${!storageOrder[@]}"
         do
 
             if [ "${storageOrder[$index]}" != 'both' ]; then
-                size="$(getFreeSpace "${storagePaths[${storageOrder[$index]}]}") ${displayMsg[GB_FREE]}\t";
+                size="${storageMsgs[GB_FREE]}: $(getFreeSpace "${storagePaths[${storageOrder[$index]}]}")\t";
                 type="${storageTypes[${storageOrder[$index]}]}\t";
                 name="${storageDevs[${storageOrder[$index]}]}";
             else
@@ -179,44 +190,51 @@ function selectStorage {
         done
 
         displayDelimiter;
-        echo -e "$(displayByDefault)${storageTypes[${storageOrder[${appDefaults[storage]}]}]} [ ${appDefaults[storage]} ]";
-        echo -e "\n${appDefaults[padding]}${displayMsg[USED_STORAGE]} $(displaySelectedDrive)";
+        echo -e "$(displayByDefault)${storageTypes[${storageOrder[${appDefaults[storage]}]}]} $(displayDefaultNum "${appDefaults[storage]}")";
+        echo -e "\n${appDefaults[padding]}${storageMsgs[USED_STORAGE]}: $(displaySelectedDrive)";
         local selectedStorage;
         selectedStorage="$(readInput "$(displaySelectPrompt)")";
     else
         selectedStorage="$1";
     fi
 
-    if ! [[ "$selectedStorage" =~ ^[0-9]+$ ]] || [ $selectedStorage -ge ${#storageOrder[@]} ]; then
-        displaySelectWarnMsg;
-        selectedStorage="${appDefaults[storage]}";
-    fi
+    if [ "$selectedStorage" != 'n' ]; then
+        # set default value
+        if ! [[ "$selectedStorage" =~ ^[0-9]+$ ]] || [ $selectedStorage -ge ${#storageOrder[@]} ]; then
+            displaySelectWarnMsg;
+            selectedStorage="${appDefaults[storage]}";
+        fi
 
-    # set selected storage
-    selectedStorage="${storageOrder[$selectedStorage]}";
-    storages=();
+        # set selected storage
+        selectedStorage="${storageOrder[$selectedStorage]}";
+        storages=();
 
-    case $selectedStorage in
-        'ext')
-            # external drive
-            storages[ext]="${storageDevs[ext]}";
-        ;;
+        case $selectedStorage in
+            'ext')
+                # external drive
+                storages[ext]="${storageDevs[ext]}";
+            ;;
 
-        'int')
-            # internal drive
-            storages[int]="${storageDevs[int]}";
-        ;;
+            'int')
+                # internal drive
+                storages[int]="${storageDevs[int]}";
+            ;;
 
-        'both')
-            # both external and internal drive
-            storages[ext]="${storageDevs[ext]}";
-            storages[int]="${storageDevs[int]}";
-        ;;
-    esac
+            'both')
+                # both external and internal drive
+                storages[ext]="${storageDevs[ext]}";
+                storages[int]="${storageDevs[int]}";
+            ;;
+        esac
 
-    if [ -z "$1" ]; then
-        echo -e "\n${appDefaults[padding]}${displayMsg[SELECTED_STORAGE]} $(displaySelectedDrive)";
-        displayFooter "${actionHeaders[storage]}" ${displayMsg[IS_SUCCESS]};
+        # display footer
+        if [ -z "$1" ]; then
+            echo -e "\n${appDefaults[padding]}${storageMsgs[SELECTED_STORAGE]}: $(displaySelectedDrive)";
+            displayFooter "${actionHeaders[storage]}" true;
+        fi
+    else
+        # display footer
+        displayFooter "${actionHeaders[storage]}";
     fi
 }
 

@@ -17,6 +17,16 @@ function trim {
     [ -n "$1" ] && echo "$1" | xargs echo 2> /dev/null;
 }
 
+# shorten string
+function shorten {
+    if [ -n "$1" ] && [[ "$2" =~ ^[0-9]+$ ]]; then
+        local str;
+        str=$(trim "$1");
+        [ ${#str} -gt $2 ] && str="$(echo "$str" | grep -Eo "^.{0,$2}")...";
+        echo "$str";
+    fi
+}
+
 # read user input
 function readInput {
     if [ -n "$1" ]; then
@@ -43,33 +53,43 @@ function exitProcess {
 
     # display exit message
     local setExit;
+    clear;
+    displayTitle;
 
     case $code in
         0)
+            # exit manual
             displayHeader "${actionHeaders[exit]}";
-            echo -e "${appDefaults[padding]}${displayMsg[WANT_EXIT]}";
-            setExit="$(readInput "$(displayExitPrompt)")";
+            displayExplain "${explainMsgs[exit]}";
+            echo -e "\n${appDefaults[padding]}${commonMsgs[WANT_EXIT]}";
+            setExit="$(readInput "$(displayReturnPrompt)")";
         ;;
+
         1)
-            clear;
+            # exit by application error
             displayHeader "${actionHeaders[error]}";
-            local defaultMsg="${appDefaults[padding]} ${displayMsg[APP_ERROR]}";
-            [ -n "$1" ] && echo -e "${appDefaults[padding]}$1\n" || echo -e "$defaultMsg\n";
+            local defaultMsg;
+            local msg;
+            defaultMsg="${appDefaults[padding]} ${commonMsgs[APP_ERROR]}";
+            msg="$(echo "$1" | sed -e "s/.\{70\}/&\n${appDefaults[padding]}/g")";
+            [ -n "$1" ] && echo -e "${appDefaults[padding]}$msg\n" || echo -e "$defaultMsg\n";
         ;;
+
         2)
-            clear;
+            # exit by press break key combination
             displayHeader "${actionHeaders[exit]}";
-            echo -e "${appDefaults[padding]}${displayMsg[PRESS_BREAK]}"
+            displayExplain "${explainMsgs[exit]}";
+            echo -e "${appDefaults[padding]}${commonMsgs[PRESS_BREAK]}"
         ;;
     esac
 
     # exit or continue
-    if [ -z "$setExit" ]; then
+    if [ "$setExit" != 'n' ]; then
         [ $code -ne 1 ] && echo -e "\n${appDefaults[padding]}exit...";
         unmountStorage;
         [ $code -ne 1 ] && clear;
         exit "$code";
     else
-        displayFooter "${actionHeaders[exit]}" ${displayMsg[IS_CANCEL]};
+        displayFooter "${actionHeaders[exit]}";
     fi
 }
