@@ -19,7 +19,6 @@ function mountStorage {
     # set external drive uuid
     local uuidFilePath;
     local extDriveUuid;
-
     uuidFilePath="$cwd/${files[uuid]}";
     extDriveUuid="$(
         cat "$uuidFilePath" 2> /dev/null || exitProcess "$uuidFilePath ${err[FILE_NOT_FOUND]}" 1;
@@ -104,6 +103,7 @@ function mountStorage {
 
     # mount external and internal drive
     local name;
+
     for name in "${mountOrder[@]}"
     do
         local fs;
@@ -142,7 +142,7 @@ function mountStorage {
 
 # unmount storage drive
 function unmountStorage {
-    cd "$cwd" 2> /dev/null;
+    changeDir "$cwd";
 
     # restore user rights
     [ -d "${storagePaths[user]}" ] && sudo chmod o-rx "${storagePaths[user]}" 2> /dev/null;
@@ -162,17 +162,22 @@ function unmountStorage {
 
 # select storage drive
 function selectStorage {
-    # display storage selection dialog
     if [ -z "$1" ]; then
         local index;
         local size;
         local type;
         local name;
+        local selectedStorage;
+        local status;
+        status="${statusFlags[DONE]}";
+
+        # display header
         displayTitle;
         displayHeader "${actionHeaders[storage]}";
-        displayExplain "${explainMsgs[storage]}";
+        displayExplain "${explainMsgs[STORAGE]}";
         displayHeader "${actionHeaders[drive]}";
 
+        # display storage selection dialog
         for index in "${!storageOrder[@]}"
         do
 
@@ -192,8 +197,8 @@ function selectStorage {
         displayDelimiter;
         echo -e "$(displayByDefault)${storageTypes[${storageOrder[${appDefaults[storage]}]}]} $(displayDefaultNum "${appDefaults[storage]}")";
         echo -e "\n${appDefaults[padding]}${storageMsgs[USED_STORAGE]}: $(displaySelectedDrive)";
-        local selectedStorage;
         selectedStorage="$(readInput "$(displaySelectPrompt)")";
+        [ "$selectedStorage" == 'n' ] && status="${statusFlags[CANCEL]}";
     else
         selectedStorage="$1";
     fi
@@ -230,11 +235,11 @@ function selectStorage {
         # display footer
         if [ -z "$1" ]; then
             echo -e "\n${appDefaults[padding]}${storageMsgs[SELECTED_STORAGE]}: $(displaySelectedDrive)";
-            displayFooter "${actionHeaders[storage]}" true;
+            displayFooter "${actionHeaders[storage]}" "$status";
         fi
     else
         # display footer
-        displayFooter "${actionHeaders[storage]}";
+        displayFooter "${actionHeaders[storage]}" "$status";
     fi
 }
 
@@ -245,5 +250,7 @@ function getFreeSpace {
         space="$(df --output=avail "$1" 2> /dev/null | grep -v 'Avail')";
         space="$(trim "$space")";
         echo $((space/1024**2));
+    else
+        return 1;
     fi
 }

@@ -16,6 +16,7 @@
 declare -gA storages;
 declare -gA storagePaths;
 declare -gA storageDevs;
+declare -ga backups;
 
 # error messages
 declare -gA err=(
@@ -25,7 +26,6 @@ declare -gA err=(
     [HARDWARE_NOT_FOUND]='hardware not found'
     [FAIL_DIR_CREATE]='failed to create directory'
     [FAIL_FILE_WRITE]='failed to write file'
-    [FAIL_FILE_READ]='failed to read file'
     [FAIL_PART_MOUNT]='failed to mount partition'
     [FAIL_CHANGE_DIR]='failed to change directory'
     [FAIL_CHANGE_RIGHTS]='failed to change user rights'
@@ -132,7 +132,7 @@ declare -gA appDefaults=(
     [storage]=2
     [timeout]=3
     [action]=0
-    [headDelim]='-----------------------------------------------------------------------'
+    [delim]='-----------------------------------------------------------------------'
     [padding]="    "
 )
 
@@ -145,6 +145,8 @@ declare -gA actionHeaders=(
     [storage]='select storage drive'
     [drive]='drives list'
     [list]='display system backup list'
+    [verify]='verify system backup integrity'
+    [about]='display info about application'
     [exit]='exit from application'
     [error]='application error'
     [action]='select action'
@@ -158,7 +160,9 @@ declare -ga actionOrder=(
     'remove'
     'copy'
     'list'
+    'verify'
     'storage'
+    'about'
     'exit'
 );
 
@@ -194,13 +198,15 @@ declare -gA excludeHome=(
 
 # explain messages
 declare -gA explainMsgs=(
-    [backup]='backup all files in root, efi partitions and hidden files in home dir'
-    [restore]='remove current system and restore from backup, except files in home dir'
-    [remove]='remove selected backup from storage drive'
-    [copy]='copy selected backup between storage drives'
-    [storage]='select storage drives to create, restore and display backup list'
-    [list]='list all available backups on selected storage drives'
-    [exit]='unmount storage drives, exit from recovery utility'
+    [BACKUP]='backup all files in root, efi partitions and hidden files in home dir'
+    [RESTORE]='remove current system and restore from backup, except files in home dir'
+    [REMOVE]='remove selected backup from storage drive'
+    [COPY]='copy selected backup between storage drives'
+    [STORAGE]='select storage drives to create, restore and display backup list'
+    [LIST]='list all available backups on selected storage drives'
+    [VERIFY]='verify all system backup integrity by recalculate checksum'
+    [ABOUT]='system recovery command line utility, copyright © 2022 Denis Efimov'
+    [EXIT]='unmount storage drives, exit from recovery utility'
 )
 
 # common application messages
@@ -214,8 +220,10 @@ declare -gA commonMsgs=(
     [PRESS_BREAK]='pressing break key combination'
     [BY_DEFAULT]='by default'
     [IS_SUCCESS]='successful'
+    [IS_FAIL]='fail'
     [IS_CANCEL]='canceled'
     [IS_COPIED]='copy backup to'
+    [IS_EXIT]='exit'
     [PRESS_ENTER]='press enter to continue'
 )
 
@@ -247,5 +255,12 @@ declare -gA detailMsgs=(
 # verify hash messages
 declare -gA hashMsgs=(
     [IS_BROKEN]='backup is broken'
-    [VERIFY]='verify backup checksum'
+    [IS_VERIFY]='verify backup checksum'
+)
+
+# execution status flags
+declare -gA statusFlags=(
+    [DONE]='done'
+    [FAIL]='fail'
+    [CANCEL]='cancel'
 )

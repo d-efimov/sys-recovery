@@ -14,14 +14,17 @@
 
 # create system backup
 function createBackup {
-    # display backup creation dialog
     local descr;
     local name;
     local index;
     local dir;
+    local status;
+    status="${statusFlags[DONE]}";
+
+    # display header
     displayTitle;
     displayHeader "${actionHeaders[backup]}";
-    displayExplain "${explainMsgs[backup]}";
+    displayExplain "${explainMsgs[BACKUP]}";
     descr="$(readInput "$(displayDescrPrompt)")";
     [ -z "$descr" ] && descr="${backupMsgs[NO_DESCR]}";
 
@@ -31,28 +34,38 @@ function createBackup {
     # create backup directory
     [ ${#storages[@]} -eq 2 ] && index="ext" || index="${!storages[@]}";
     dir="${storagePaths[$index]}/$name";
-    sudo mkdir "$dir" 2> /dev/null || exitProcess "$dir ${err[FAIL_DIR_CREATE]}" 1;
+    sudo mkdir "$dir" 2> /dev/null || displayErrorMsg "$dir ${err[FAIL_DIR_CREATE]}";
 
     # write backup description
-    echo "$descr" | sudo tee "$dir/${files[descr]}" &> /dev/null ||
-        exitProcess "$dir/${files[descr]} ${err[FAIL_FILE_WRITE]}" 1;
+    if [ "$status" == "${statusFlags[DONE]}" ]; then
+        echo "$descr" | sudo tee "$dir/${files[descr]}" &> /dev/null ||
+            displayErrorMsg "$dir ${err[FAIL_FILE_WRITE]}";
+    fi
 
     # display backup detail
-    displayBackupDetail "$dir" "${storages[$index]}";
-    [ ${#storages[@]} -eq 2 ] && echo -e "${appDefaults[padding]}${backupMsgs[BE_COPIED]}: ${storages[int]}";
+    if [ "$status" == "${statusFlags[DONE]}" ]; then
+        displayBackupDetail "$dir" "${storages[$index]}";
+        [ ${#storages[@]} -eq 2 ] && echo -e "${appDefaults[padding]}${backupMsgs[BE_COPIED]}: ${storages[int]}";
+    fi
 
     # display return dialog
-    local setReturn;
-    setReturn="$(readInput "$(displayReturnPrompt)")";
+    if [ "$status" == "${statusFlags[DONE]}" ]; then
+        local setReturn;
+        setReturn="$(readInput "$(displayReturnPrompt)")";
+        [ "$setReturn" == 'n' ] && status="${statusFlags[CANCEL]}";
+    fi
 
-    if [ "$setReturn" != 'n' ]; then
+    if [ "$status" == "${statusFlags[DONE]}" ] && [ "$setReturn" != 'n' ]; then
         # create root file system backup
-        echo -e "\n${appDefaults[padding]}${backupMsgs[IN_PROGRESS]}...";
-        cd "${mounts[root]}" 2> /dev/null || exitProcess "${mounts[root]} ${err[FAIL_CHANGE_DIR]}" 1;
         declare -a rootPaths;
+        local options;
         local rootPath;
         local home;
+        options="-cpjf";
         home=$(echo "${storagePaths[user]}" | grep -Eo 'home/[a-z]+');
+
+        echo -e "\n${appDefaults[padding]}${backupMsgs[IN_PROGRESS]}...";
+        changeDir "${mounts[root]}";
 
         for rootPath in "${excludeRoot[@]}";
         do
@@ -60,75 +73,143 @@ function createBackup {
             rootPaths+=(--exclude="$rootPath")
         done
 
-        sudo tar -cpjf "$dir/${files[root]}" "${rootPaths[@]}" * 2> /dev/null ||
-            exitProcess "$dir/${files[root]} ${err[FAIL_BACKUP_CREATE]}" 1;
+        sudo tar "$options" "$dir/${files[root]}" "${rootPaths[@]}" * 2> /dev/null || displayErrorMsg "$dir/${files[root]} ${err[FAIL_BACKUP_CREATE]}";
 
         # create home folder backup
-        cd "${storagePaths[user]}" 2> /dev/null || exitProcess "${mounts[home]} ${err[FAIL_CHANGE_DIR]}" 1;
-        declare -a homePaths;
-        local homePath;
+        if [ "$status" == "${statusFlags[DONE]}" ]; then
+            changeDir "${storagePaths[user]}";
+            declare -a homePaths;
+            local homePath;
 
-        for homePath in "${excludeHome[@]}";
-        do
-            homePaths+=(--exclude="$homePath")
-        done
+            for homePath in "${excludeHome[@]}";
+            do
+                homePaths+=(--exclude="$homePath")
+            done
 
-        sudo tar -cpjf "$dir/${files[home]}" "${homePaths[@]}" .* 2> /dev/null ||
-            exitProcess "$dir/${files[home]} ${err[FAIL_BACKUP_CREATE]}" 1;
+            sudo tar "$options" "$dir/${files[home]}" "${homePaths[@]}" .* 2> /dev/null ||
+                displayErrorMsg "$dir/${files[root]} ${err[FAIL_BACKUP_CREATE]}";
+        fi
 
         # calculate backup checksum
-        echo -e "${appDefaults[padding]}${backupMsgs[CALC_HASH]}...";
-        getHash "$dir/${files[root]}";
-        getHash "$dir/${files[home]}";
+        if [ "$status" == "${statusFlags[DONE]}" ]; then
+            echo -e "${appDefaults[padding]}${backupMsgs[CALC_HASH]}...";
+            getHash "$dir/${files[root]}" || displayErrorMsg "$dir/${files[root]} ${err[FAIL_HASH_CACL]}";
+
+            if [ "$status" == "${statusFlags[DONE]}" ]; then
+                getHash "$dir/${files[home]}" ||
+                    displayErrorMsg "$dir/${files[home]} ${err[FAIL_HASH_CACL]}";
+            fi
+        fi
 
         # copy backup to internal drive
-        if [ ${#storages[@]} -eq 2 ]; then
+        if [ "$status" == "${statusFlags[DONE]}" ] && [ ${#storages[@]} -eq 2 ]; then
             echo -e "\n${appDefaults[padding]}${commonMsgs[IS_COPIED]} ${storages[int]}...";
-            sudo cp -rp "$dir" ${storagePaths[int]} ||
-                exitProcess "${storagePaths[int]} ${err[FAIL_BACKUP_COPY]}" 1;
+            sudo cp -rp "$dir" ${storagePaths[int]} 2> /dev/null ||
+                displayErrorMsg "${storagePaths[int]} ${err[FAIL_BACKUP_COPY]}";
 
             # verify backup checksum
-            echo -e "${appDefaults[padding]}${hashMsgs[VERIFY]}...";
-            verifyHash "${storagePaths[int]}/$name";
+            if [ "$status" == "${statusFlags[DONE]}" ]; then
+                echo -e "${appDefaults[padding]}${hashMsgs[IS_VERIFY]}...";
+                verifyHash "${storagePaths[int]}/$name" ||
+                    displayErrorMsg "${storagePaths[int]}/$name ${err[FAIL_HASH_VERIFY]}";
+            fi
         fi
 
         # display footer
-        displayFooter "${actionHeaders[backup]}" true;
+        displayFooter "${actionHeaders[backup]}" "$status";
     else
         # remove backup dir
-        sudo rm -rf "$dir";
+        sudo rm -rf "$dir" 2> /dev/null;
 
         # display footer
-        displayFooter "${actionHeaders[backup]}";
+        displayFooter "${actionHeaders[backup]}" "$status";
     fi
 }
 
 # restore system backup
 function restoreBackup {
+    local status;
+    status="${statusFlags[DONE]}";
+
+    # display header
     displayTitle;
     displayHeader "${actionHeaders[restore]}";
-    displayExplain "${explainMsgs[restore]}";
+    displayExplain "${explainMsgs[RESTORE]}";
+
+    # display backup restore dialog
+
+    # display footer
+    displayFooter "${actionHeaders[restore]}" "$status";
 }
 
 # remove system backup
 function removeBackup {
+    local status;
+    status="${statusFlags[DONE]}";
+
+    # display header
     displayTitle;
     displayHeader "${actionHeaders[remove]}";
-    displayExplain "${explainMsgs[remove]}";
+    displayExplain "${explainMsgs[REMOVE]}";
+
+    # display backup remove dialog
+
+    # display footer
+    displayFooter "${actionHeaders[remove]}" "$status";
 }
 
 # copy system backup
 function copyBackup {
+    local status;
+    status="${statusFlags[DONE]}";
+
+    # display header
     displayTitle;
     displayHeader "${actionHeaders[copy]}";
-    displayExplain "${explainMsgs[copy]}";
+    displayExplain "${explainMsgs[COPY]}";
+
+    # display backup copy dialog
+
+    # display footer
+    displayFooter "${actionHeaders[copy]}" "$status";
 }
 
 # display system backup list
 function listBackups {
+    local status;
+    status="${statusFlags[DONE]}";
+
+    # display header
     displayTitle;
     displayHeader "${actionHeaders[list]}";
-    displayExplain "${explainMsgs[list]}";
+    displayExplain "${explainMsgs[LIST]}";
+
+    # display backup list table
+
+    # display footer
+    displayFooter "${actionHeaders[list]}" "$status";
+}
+
+# verify system backup integrity
+function verifyBackups {
+    local status;
+    status="${statusFlags[DONE]}";
+
+    # display header
+    displayTitle;
+    displayHeader "${actionHeaders[verify]}";
+    displayExplain "${explainMsgs[VERIFY]}";
+
+    # display backup verification table
+
+    # display footer
+    displayFooter "${actionHeaders[verify]}" "$status";
+}
+
+# generate backup list
+function generateBackupList {
+    true;
+    #readarray -t backups < <(ls -t --time=creation $storeDir);
 }
 
 # select system backup
@@ -144,19 +225,28 @@ function getHash {
         local file;
         path="$(echo "$1" | sed -e "s/\/$regexp//")";
         file="$(echo "$1" | grep -o "$regexp")";
-        cd "$path" 2> /dev/null || exitProcess "$path ${err[FAIL_CHANGE_DIR]}" 1;
-        sudo sha256sum "$file" 2> /dev/null | sudo tee -a "${files[checksum]}" &> /dev/null ||
-            exitProcess "$path/${files[checksum]} ${err[FAIL_HASH_CACL]}" 1;
+
+        # create hash
+        changeDir "$path";
+        sudo sha256sum "$file" 2> /dev/null | sudo tee -a "${files[checksum]}" &> /dev/null || {
+            setFlag;
+            return 1;
+        }
+    else
+        return 1;
     fi
 }
 
 # verify hash
 function verifyHash {
     if [ -n "$1" ]; then
-        cd "$1" 2> /dev/null || exitProcess "$1 ${err[FAIL_CHANGE_DIR]}" 1;
+        changeDir "$1";
+        [ -f "${files[broken]}" ] && return 1;
         sudo sha256sum -c "${files[checksum]}" &> /dev/null || {
-            echo "${hashMsgs[IS_BROKEN]}" | sudo tee "${files[broken]}" &> /dev/null;
-            echo -e "${appDefaults[padding]} ${err[FAIL_HASH_VERIFY]}";
+            setFlag;
+            return 1;
         }
+    else
+        return 1;
     fi
 }

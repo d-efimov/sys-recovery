@@ -18,8 +18,8 @@ srcDir='src';
 
 # exit from process
 function exitProc {
-    [ -n "$1" ] && echo "$1";
     local code;
+    [ -n "$1" ] && echo "$1";
     [ -z "$2" ] && code=0 || code="$2";
     exit "$code";
 }

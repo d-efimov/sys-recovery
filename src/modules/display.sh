@@ -19,28 +19,30 @@ function displayTitle {
 
 # display header
 function displayHeader {
-    if [ -n "$1" ]; then
-        echo -e "\n${appDefaults[padding]}[ $1 ]\n${appDefaults[padding]}${appDefaults[headDelim]}";
-    fi
+    [ -n "$1" ] && echo -e "\n${appDefaults[padding]}[ $1 ]\n$(displayDelimiter)" || return 1;
 }
 
 # display explain
 function displayExplain {
-    if [ -n "$1" ]; then
-        echo -e "${appDefaults[padding]}$1";
-    fi
+    [ -n "$1" ] && echo -e "${appDefaults[padding]}$1" || return 1;
 }
 
 # display footer
 function displayFooter {
-    if [ -n "$1" ]; then
-        if [ -n "$2" ]; then
-            printf "\n%s, %s... " "${appDefaults[padding]}$1 ${commonMsgs[IS_SUCCESS]}" "${commonMsgs[PRESS_ENTER]}";
+    if [ -n "$1" ] && [ -n "$2" ]; then
+        if [ "$2" == "${statusFlags[DONE]}" ] || [ "$2" == "${statusFlags[FAIL]}" ]; then
+            # action is done or fail
+            local status;
+            [ "$2" == "${statusFlags[DONE]}" ] && status="${commonMsgs[IS_SUCCESS]}" || status="${commonMsgs[IS_FAIL]}";
+            printf "\n%s, %s..." "${appDefaults[padding]}$1 $status" "${commonMsgs[PRESS_ENTER]}";
             read -rs;
         else
+            # action is canceled
             echo -e "\n${appDefaults[padding]}$1 ${commonMsgs[IS_CANCEL]}...";
             sleep ${appDefaults[timeout]};
         fi
+    else
+        return 1;
     fi
 }
 
@@ -55,9 +57,8 @@ function displayBackupDetail {
         # read backup description
         local descr;
         local content;
-        descr="$(sudo cat "$1/${files[descr]}" 2> /dev/null)" ||
-            exitProcess "$1/${files[descr]} ${err[FAIL_FILE_READ]}" 1;
-        content=$(shorten "$descr" 55);
+        descr="$(readFile "$1/${files[descr]}")";
+        [ -z "$descr" ] && content="${backupMsgs[NO_DESCR]}" || content="$(shorten "$descr" 55)";
 
         # display backup detail
         local regexp='[0-9.at-]*$';
@@ -71,7 +72,9 @@ function displayBackupDetail {
         echo -e "${appDefaults[padding]}${detailMsgs[FILE]}:\t${files[root]}, ${files[home]}";
         echo -e "${appDefaults[padding]}${detailMsgs[CONTENT]}:\t$content";
         echo -e "${appDefaults[padding]}${detailMsgs[STORAGE]}:\t"$2"";
-        echo -e "${appDefaults[padding]}${appDefaults[headDelim]}";
+        displayDelimiter;
+    else
+        return 1;
     fi
 }
 
@@ -112,15 +115,25 @@ function displayByDefault {
 
 # display default value number
 function displayDefaultNum {
-    [ -n "$1" ] && echo -e "[ $1 ]";
+    [ -n "$1" ] && echo -e "[ $1 ]" || return 1;
 }
 
 # display index entry
 function displayIndex {
-    [ -n "$1" ] && echo -e "${appDefaults[padding]}[ $1 ]\t";
+    [ -n "$1" ] && echo -e "${appDefaults[padding]}[ $1 ]\t" || return 1;
 }
 
 # display delimiter
 function displayDelimiter {
-    echo -e "${appDefaults[padding]}${appDefaults[headDelim]}";
+    echo -e "${appDefaults[padding]}${appDefaults[delim]}";
+}
+
+# display error message
+function displayErrorMsg {
+    if [ -n "$1" ]; then
+        displayHeader "${actionHeaders[error]}";
+        echo -e "${appDefaults[padding]}$(echo "$1" | sed -e "s/.\{70\}/&\n${appDefaults[padding]}/g")";
+        displayDelimiter;
+        [ -n "$status" ] && status="${statusFlags[FAIL]}";
+    fi
 }

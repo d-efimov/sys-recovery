@@ -11,6 +11,6 @@
   -----------------------------------------------------------------------------
 
   ------------- [ CAUTION ] -------------  ------------ [ WARNING ] -----------
-    THIS SOFTWARE MAY DESTROY YOUR DATA      runs recovery utility only after
-    USE IT CORRECTLY AND WITH CAREFULLY       booting os from live usb drive
+    THIS SOFTWARE MAY DESTROY YOUR DATA      RUNS RECOVERY UTILITY ONLY AFTER
+    USE IT CORRECTLY AND WITH CAREFULLY       BOOTING OS FROM LIVE USB DRIVE
   ---------------------------------------  ------------------------------------

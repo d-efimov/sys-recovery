@@ -60,11 +60,12 @@ selectStorage "${appDefaults[storage]}";
 # utility action list
 while true
 do
-    # display actions selection dialog
+    # display header
     clear;
     displayTitle;
     displayHeader "${actionHeaders[action]}";
 
+    # display actions selection dialog
     for index in "${!actionOrder[@]}"
     do
         echo -e "$(displayIndex "$index")${actionHeaders[${actionOrder[$index]}]}";
@@ -110,9 +111,19 @@ do
             listBackups;
         ;;
 
+        'verify')
+            # verify system backup integrity
+            verifyBackups;
+        ;;
+
         'storage')
             # select storage drive
             selectStorage;
+        ;;
+
+        'about')
+            # display info about application
+            aboutApp;
         ;;
 
         'exit')

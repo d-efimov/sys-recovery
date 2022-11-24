@@ -8,6 +8,8 @@ Shell command line utility runs from Ubuntu Linux live usb drive and used for sy
 - remove system backup from storage drive
 - copy system backup between storage drives
 - display system backup list
+- verify system backup integrity
+- display info about application
 - select external or internal storage drive
 
 ### Requirements
