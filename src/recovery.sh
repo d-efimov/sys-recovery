@@ -42,6 +42,9 @@ function init {
     do
         [ -f "$module" ] && source "$module" 2> /dev/null || { echo "$module $MODULE_NOT_FOUND"; exit 1; }
     done
+
+    # display loader
+    displayLoader "${commonMsgs[LOADING]}";
 } && init;
 
 # set dark theme
@@ -61,9 +64,8 @@ selectStorage "${appDefaults[storage]}";
 while true
 do
     # display header
-    clear;
     displayTitle;
-    displayHeader "${actionHeaders[action]}";
+    displayHeader "${actionHeaders[ACTION]}";
 
     # display actions selection dialog
     for index in "${!actionOrder[@]}"
@@ -73,60 +75,59 @@ do
 
     displayDelimiter;
     echo -e "$(displayByDefault)${actionHeaders[${actionOrder[${appDefaults[action]}]}]} $(displayDefaultNum "${appDefaults[action]}")";
-    selectedAction="$(readInput "$(displaySelectPrompt)")";
+    selectedAction="$(readInput "$(displaySelectPrompt 1)")";
 
     # set default value
-    if ! [[ "$selectedAction" =~ ^[0-9]+$ ]] || [ $selectedAction -ge ${#actionOrder[@]} ]; then
+    if ! [[ "$selectedAction" =~ ${regexps[numberOnly]} ]] || [ $selectedAction -ge ${#actionOrder[@]} ]; then
         displaySelectWarnMsg;
         selectedAction="${appDefaults[action]}";
         sleep ${appDefaults[timeout]};
     fi
-    clear;
 
     # execute selected action
     selectedAction="${actionOrder[$selectedAction]}";
     case $selectedAction in
-        'backup')
+        'BACKUP')
             # create system backup
             createBackup;
         ;;
 
-        'restore')
+        'RESTORE')
             # restore system backup
             restoreBackup;
         ;;
 
-        'remove')
+        'REMOVE')
             # remove system backup
             removeBackup;
         ;;
 
-        'copy')
+        'COPY')
             # copy system backup
             copyBackup;
         ;;
 
-        'list')
+        'LIST')
             # display system backup list
             listBackups;
         ;;
 
-        'verify')
+        'VERIFY')
             # verify system backup integrity
             verifyBackups;
         ;;
 
-        'storage')
+        'STORAGE')
             # select storage drive
             selectStorage;
         ;;
 
-        'about')
+        'ABOUT')
             # display info about application
             aboutApp;
         ;;
 
-        'exit')
+        'EXIT')
             # exit from process
             exitProcess '' 0;
         ;;

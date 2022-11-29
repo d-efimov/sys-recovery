@@ -25,65 +25,47 @@ function mountStorage {
     )";
     extDriveUuid="$(trim "$extDriveUuid")";
 
-    # set external drive device
-    local extPlatform;
-
-    for extPlatform in "${extPlatforms[@]}"
-    do
-        local extPlatformRef;
-        declare -n extPlatformRef=$extPlatform 2> /dev/null;
-
-        if [ "${extPlatformRef[recovery]}" == "$extDriveUuid" ]; then
-            # set external drive partition
-            devices[store]="$(deviceByUuid "${extPlatformRef[store]}")";
-
-            # set external drive device name
-            storageDevs[ext]="${extPlatformRef[name]}";
-
-            break;
-        fi
-
-        unset -n extPlatformRef;
-    done
-
-    if [ ${#devices[@]} -ne 1 ] || [ ${#storageDevs[@]} -ne 1 ]; then
-        exitProcess "$extDriveUuid ${err[HARDWARE_NOT_FOUND]}" 1;
-    fi
-
     # set internal drive platform
     local intDrivePlatform;
     intDrivePlatform="$(cat /etc/machine-id 2> /dev/null)";
     intDrivePlatform="$(trim "$intDrivePlatform")";
 
-    # set internal drive device
-    local intPlatform;
+    # set external and internal drives device
+    local rawPlatform;
 
-    for intPlatform in "${intPlatforms[@]}"
+    for rawPlatform in "${platforms[@]}"
     do
-        local intPlatformRef;
-        declare -n intPlatformRef=$intPlatform 2> /dev/null;
+        declare -A platform="$rawPlatform";
 
-        if [ "${intPlatformRef[hw]}" == "$intDrivePlatform" ]; then
-            # set internal drive partition
-            devices[root]="$(deviceByUuid "${intPlatformRef[root]}")";
-            devices[boot]="$(deviceByUuid "${intPlatformRef[boot]}")";
-            devices[home]="$(deviceByUuid "${intPlatformRef[home]}")";
+        if [ "${platform[type]}" == "$EXT" ]; then
+            # set external drive device
+            if [ "${platform[recovery]}" == "$extDriveUuid" ]; then
+                # set external drive partition
+                devices[$STORE]="$(deviceByUuid "${platform[$STORE]}")";
 
-            # set internal drive device name
-            storageDevs[int]="${intPlatformRef[name]}";
+                # set external drive device name
+                storageDevs[$EXT]="${platform[name]}";
+            fi
+        else
+            # set internal drive device
+            if [ "${platform[hw]}" == "$intDrivePlatform" ]; then
+                # set internal drive partition
+                devices[$ROOT]="$(deviceByUuid "${platform[$ROOT]}")";
+                devices[$BOOT]="$(deviceByUuid "${platform[$BOOT]}")";
+                devices[$HOME]="$(deviceByUuid "${platform[$HOME]}")";
 
-            # set internal drive hardware name
-            local hw;
-            hw="${intPlatformRef[hw]}";
+                # set internal drive device name
+                storageDevs[$INT]="${platform[name]}";
 
-            # set internal drive user id
-            local user;
-            user=${intPlatformRef[user]};
+                # set internal drive hardware name
+                local hw;
+                hw="${platform[hw]}";
 
-            break;
+                # set internal drive user id
+                local user;
+                user=${platform[user]};
+            fi
         fi
-
-        unset -n intPlatformRef;
     done
 
     if [ ${#devices[@]} -ne 4 ] || [ ${#storageDevs[@]} -ne 2 ] || [ -z "$hw" ]; then
@@ -91,14 +73,14 @@ function mountStorage {
     fi
 
     # set mount points
-    if ! [ -d "${mounts[store]}" ]; then
-        sudo mkdir "${mounts[store]}" 2> /dev/null ||
-            exitProcess "${mounts[store]} ${err[FAIL_DIR_CREATE]}" 1;
+    if ! [ -d "${mounts[$STORE]}" ]; then
+        sudo mkdir "${mounts[$STORE]}" 2> /dev/null ||
+            exitProcess "${mounts[$STORE]} ${err[FAIL_DIR_CREATE]}" 1;
     fi
 
-    if ! [ -d "${mounts[root]}" ]; then
-        sudo mkdir "${mounts[root]}" 2> /dev/null ||
-            exitProcess "${mounts[root]} ${err[FAIL_DIR_CREATE]}" 1;
+    if ! [ -d "${mounts[$ROOT]}" ]; then
+        sudo mkdir "${mounts[$ROOT]}" 2> /dev/null ||
+            exitProcess "${mounts[$ROOT]} ${err[FAIL_DIR_CREATE]}" 1;
     fi
 
     # mount external and internal drive
@@ -107,7 +89,7 @@ function mountStorage {
     for name in "${mountOrder[@]}"
     do
         local fs;
-        [ "$name" == 'boot' ] && fs='vfat' || fs='ext4';
+        [ "$name" == "$BOOT" ] && fs="${appDefaults[bootFs]}" || fs="${appDefaults[mainFs]}";
 
         [ -b "${devices[$name]}" ] || exitProcess "${devices[$name]} ${err[DEV_NOT_FOUND]}" 1;
 
@@ -120,23 +102,23 @@ function mountStorage {
     done
 
     # set user rights
-    storagePaths[user]="$(find "${mounts[home]}" -maxdepth 1 -type d -uid $user -print 2> /dev/null)";
+    storagePaths[user]="$(find "${mounts[$HOME]}" -maxdepth 1 -type d -uid $user -print 2> /dev/null)";
     [ -d "${storagePaths[user]}" ] || exitProcess "${storagePaths[user]} ${err[DIR_NOT_FOUND]}" 1;
     sudo chmod o+rx "${storagePaths[user]}" 2> /dev/null ||
         exitProcess "${storagePaths[user]} ${err[FAIL_CHANGE_RIGHTS]}" 1;
 
     # set storage paths
-    storagePaths[ext]="${paths[ext]/\[hw\]/$hw}";
-    storagePaths[int]="${paths[int]/\[user\]/${storagePaths[user]}}";
+    storagePaths[$EXT]="${paths[$EXT]/${placeholders[hw]}/$hw}";
+    storagePaths[$INT]="${paths[$INT]/${placeholders[user]}/${storagePaths[user]}}";
 
-    if ! [ -d "${storagePaths[ext]}" ]; then
-        sudo mkdir "${storagePaths[ext]}" 2> /dev/null ||
-            exitProcess "${storagePaths[ext]} ${err[FAIL_DIR_CREATE]}" 1;
+    if ! [ -d "${storagePaths[$EXT]}" ]; then
+        sudo mkdir "${storagePaths[$EXT]}" 2> /dev/null ||
+            exitProcess "${storagePaths[$EXT]} ${err[FAIL_DIR_CREATE]}" 1;
     fi
 
-    if ! [ -d "${storagePaths[int]}" ]; then
-        sudo mkdir "${storagePaths[int]}" 2> /dev/null ||
-            exitProcess "${storagePaths[int]} ${err[FAIL_DIR_CREATE]}" 1;
+    if ! [ -d "${storagePaths[$INT]}" ]; then
+        sudo mkdir "${storagePaths[$INT]}" 2> /dev/null ||
+            exitProcess "${storagePaths[$INT]} ${err[FAIL_DIR_CREATE]}" 1;
     fi
 }
 
@@ -148,15 +130,15 @@ function unmountStorage {
     [ -d "${storagePaths[user]}" ] && sudo chmod o-rx "${storagePaths[user]}" 2> /dev/null;
 
     # unmount external drive
-    if [ -d "${mounts[store]}" ]; then
-        sudo umount -q "${mounts[store]}" 2> /dev/null;
-        sudo rmdir "${mounts[store]}" 2> /dev/null;
+    if [ -d "${mounts[$STORE]}" ]; then
+        sudo umount -q "${mounts[$STORE]}" 2> /dev/null;
+        sudo rmdir "${mounts[$STORE]}" 2> /dev/null;
     fi
 
     # unmount internal drive
-    if [ -d "${mounts[root]}" ]; then
-        sudo umount -Rq "${mounts[root]}" 2> /dev/null;
-        sudo rmdir "${mounts[root]}" 2> /dev/null;
+    if [ -d "${mounts[$ROOT]}" ]; then
+        sudo umount -Rq "${mounts[$ROOT]}" 2> /dev/null;
+        sudo rmdir "${mounts[$ROOT]}" 2> /dev/null;
     fi
 }
 
@@ -173,15 +155,15 @@ function selectStorage {
 
         # display header
         displayTitle;
-        displayHeader "${actionHeaders[storage]}";
+        displayHeader "${actionHeaders[STORAGE]}";
         displayExplain "${explainMsgs[STORAGE]}";
-        displayHeader "${actionHeaders[drive]}";
+        displayHeader "${actionHeaders[DRIVES]}";
 
-        # display storage selection dialog
+        # display storage list table
         for index in "${!storageOrder[@]}"
         do
 
-            if [ "${storageOrder[$index]}" != 'both' ]; then
+            if [ "${storageOrder[$index]}" != "$BOTH" ]; then
                 size="${storageMsgs[GB_FREE]}: $(getFreeSpace "${storagePaths[${storageOrder[$index]}]}")\t";
                 type="${storageTypes[${storageOrder[$index]}]}\t";
                 name="${storageDevs[${storageOrder[$index]}]}";
@@ -197,6 +179,8 @@ function selectStorage {
         displayDelimiter;
         echo -e "$(displayByDefault)${storageTypes[${storageOrder[${appDefaults[storage]}]}]} $(displayDefaultNum "${appDefaults[storage]}")";
         echo -e "\n${appDefaults[padding]}${storageMsgs[USED_STORAGE]}: $(displaySelectedDrive)";
+
+        # display selection prompt
         selectedStorage="$(readInput "$(displaySelectPrompt)")";
         [ "$selectedStorage" == 'n' ] && status="${statusFlags[CANCEL]}";
     else
@@ -205,7 +189,7 @@ function selectStorage {
 
     if [ "$selectedStorage" != 'n' ]; then
         # set default value
-        if ! [[ "$selectedStorage" =~ ^[0-9]+$ ]] || [ $selectedStorage -ge ${#storageOrder[@]} ]; then
+        if ! [[ "$selectedStorage" =~ ${regexps[numberOnly]} ]] || [ $selectedStorage -ge ${#storageOrder[@]} ]; then
             displaySelectWarnMsg;
             selectedStorage="${appDefaults[storage]}";
         fi
@@ -215,31 +199,31 @@ function selectStorage {
         storages=();
 
         case $selectedStorage in
-            'ext')
+            "$EXT")
                 # external drive
-                storages[ext]="${storageDevs[ext]}";
+                storages[$EXT]="${storageDevs[$EXT]}";
             ;;
 
-            'int')
+            "$INT")
                 # internal drive
-                storages[int]="${storageDevs[int]}";
+                storages[$INT]="${storageDevs[$INT]}";
             ;;
 
-            'both')
+            "$BOTH")
                 # both external and internal drive
-                storages[ext]="${storageDevs[ext]}";
-                storages[int]="${storageDevs[int]}";
+                storages[$EXT]="${storageDevs[$EXT]}";
+                storages[$INT]="${storageDevs[$INT]}";
             ;;
         esac
 
-        # display footer
-        if [ -z "$1" ]; then
-            echo -e "\n${appDefaults[padding]}${storageMsgs[SELECTED_STORAGE]}: $(displaySelectedDrive)";
-            displayFooter "${actionHeaders[storage]}" "$status";
-        fi
-    else
-        # display footer
-        displayFooter "${actionHeaders[storage]}" "$status";
+        # build backup model
+        buildBackupModel;
+    fi
+
+    # display footer
+    if [ -z "$1" ]; then
+        [ "$selectedStorage" != 'n' ] && echo -e "\n${appDefaults[padding]}${storageMsgs[SELECTED_STORAGE]}: $(displaySelectedDrive)";
+        displayFooter "${actionHeaders[STORAGE]}" "$status";
     fi
 }
 
@@ -248,8 +232,7 @@ function getFreeSpace {
     if [ -n "$1" ]; then
         local space;
         space="$(df --output=avail "$1" 2> /dev/null | grep -v 'Avail')";
-        space="$(trim "$space")";
-        echo $((space/1024**2));
+        convertKb2Gb "$(trim "$space")";
     else
         return 1;
     fi

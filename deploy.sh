@@ -43,7 +43,7 @@ do
 done
 
 # build software
-./build.sh 'usbHdd' || exitProc "filed to build software" 1;
+./build.sh '801379be-e3e7-4200-963e-f627a35e6c68' || exitProc "filed to build software" 1;
 
 # set usb drive
 [ -d "$distDir" ] || exitProc "$distDir not found" 1;

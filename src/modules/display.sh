@@ -14,6 +14,7 @@
 
 # display title
 function displayTitle {
+    clear;
     echo -e "\n${appDefaults[title]}";
 }
 
@@ -32,13 +33,13 @@ function displayFooter {
     if [ -n "$1" ] && [ -n "$2" ]; then
         if [ "$2" == "${statusFlags[DONE]}" ] || [ "$2" == "${statusFlags[FAIL]}" ]; then
             # action is done or fail
-            local status;
-            [ "$2" == "${statusFlags[DONE]}" ] && status="${commonMsgs[IS_SUCCESS]}" || status="${commonMsgs[IS_FAIL]}";
-            printf "\n%s, %s..." "${appDefaults[padding]}$1 $status" "${commonMsgs[PRESS_ENTER]}";
+            local result;
+            [ "$2" == "${statusFlags[DONE]}" ] && result="${commonMsgs[IS_SUCCESS]}" || result="${commonMsgs[IS_FAIL]}";
+            printf "\n%s, %s..." "${appDefaults[padding]}$1 $result" "${commonMsgs[TO_CONTINUE]}";
             read -rs;
         else
             # action is canceled
-            echo -e "\n${appDefaults[padding]}$1 ${commonMsgs[IS_CANCEL]}...";
+            displayLoader "$1 ${commonMsgs[IS_CANCEL]}";
             sleep ${appDefaults[timeout]};
         fi
     else
@@ -48,31 +49,63 @@ function displayFooter {
 
 # display backup list
 function displayBackupList {
-    true;
+    local index;
+
+    [ ${#backups[@]} -eq 0 ] && return 1;
+    displayHeader "${actionHeaders[BACKUPS]}";
+    for index in "${!backups[@]}"
+    do
+        declare -A fields="${backups[$index]}";
+        echo -e "$(displayIndex "$index")${fields[name]}\t${fields[status]}\t${storages[${fields[storage]}]}";
+        echo -e "\t\t$(shorten "${fields[descr]}" 56)";
+        displayDelimiter;
+    done
 }
 
 # display backup detail
 function displayBackupDetail {
-    if [ -n "$1" ] && [ -n "$2" ]; then
-        # read backup description
-        local descr;
-        local content;
-        descr="$(readFile "$1/${files[descr]}")";
-        [ -z "$descr" ] && content="${backupMsgs[NO_DESCR]}" || content="$(shorten "$descr" 55)";
+    if [ -n "$1" ]; then
+        declare -a findBackups;
+        local index;
+
+        # find backup
+        if [[ "$1" =~ ${regexps[numberOnly]} ]] && [ $1 -lt ${#backups[@]} ]; then
+            # find backup by index
+            findBackups+=("${backups[$1]}");
+        elif [[ "$1" =~ ${regexps[backupName]} ]]; then
+            # find backup by name
+            for index in "${!backups[@]}"
+            do
+                echo "${backups[$index]}" | grep -q "$1" && findBackups+=("${backups[$index]}");
+            done
+        else
+            return 1
+        fi
+
+        # check backup find result
+        [ ${#findBackups[@]} -eq 0 ] && return 1;
 
         # display backup detail
-        local regexp='[0-9.at-]*$';
-        local path;
-        local name;
-        path="$(echo "$1" | sed -e "s/\/$regexp//")";
-        name="$(echo "$1" | grep -o "$regexp")";
-        displayHeader "${actionHeaders[detail]}";
-        echo -e "${appDefaults[padding]}${detailMsgs[PATH]}:\t$path";
-        echo -e "${appDefaults[padding]}${detailMsgs[NAME]}:\t$name";
-        echo -e "${appDefaults[padding]}${detailMsgs[FILE]}:\t${files[root]}, ${files[home]}";
-        echo -e "${appDefaults[padding]}${detailMsgs[CONTENT]}:\t$content";
-        echo -e "${appDefaults[padding]}${detailMsgs[STORAGE]}:\t"$2"";
-        displayDelimiter;
+        displayTitle;
+        local backup;
+
+        for backup in "${findBackups[@]}"
+        do
+            declare -A fields="${backup}";
+            local path;
+            local files;
+            path="${storagePaths[${fields[storage]}]}";
+            files="$(echo "${fields[files]}" | sed -E "s/${regexps[spaceSingle]}/\n${appDefaults[padding]}\t\t/2")";
+            displayHeader "${actionHeaders[DETAIL]}";
+            echo -e "${appDefaults[padding]}${detailMsgs[STATUS]}:\t${fields[status]}";
+            echo -e "${appDefaults[padding]}${detailMsgs[NAME]}:\t${fields[name]}";
+            echo -e "${appDefaults[padding]}${detailMsgs[DESCR]}:\t$(shorten "${fields[descr]}" 55)";
+            echo -e "${appDefaults[padding]}${detailMsgs[STORAGE]}:\t${storageDevs[${fields[storage]}]}";
+            echo -e "${appDefaults[padding]}${detailMsgs[PATH]}:\t$path";
+            echo -e "${appDefaults[padding]}${detailMsgs[FILES]}:\t$files";
+            echo -e "${appDefaults[padding]}${detailMsgs[SIZE]}:\t${fields[size]}";
+            displayDelimiter;
+        done
     else
         return 1;
     fi
@@ -90,7 +123,9 @@ function displayConfirmPrompt {
 
 # display selection prompt
 function displaySelectPrompt {
-    echo -e "\n${appDefaults[padding]}${commonMsgs[SET_SELECT]}: ";
+    local msg;
+    [ -n "$1" ] && msg="${commonMsgs[ONLY_SELECT]}" || msg="${commonMsgs[SET_SELECT]}";
+    echo -e "\n${appDefaults[padding]}$msg: ";
 }
 
 # display description prompt
@@ -100,12 +135,17 @@ function displayDescrPrompt {
 
 # display selected drive
 function displaySelectedDrive {
-    [ ${#storages[@]} -eq 2 ] && echo "${storages[ext]} and ${storages[int]}" || echo "${storages[@]}";
+    [ ${#storages[@]} -eq 2 ] && echo "${storages[$EXT]} and ${storages[$INT]}" || echo "${storages[@]}";
 }
 
 # display selection warning
 function displaySelectWarnMsg {
     echo -e "\n${appDefaults[padding]}${commonMsgs[WARN_SELECT]}";
+}
+
+# display selection error
+function displaySelectErrMsg {
+    echo -e "${commonMsgs[ERR_SELECT]}";
 }
 
 # display by default entry
@@ -131,9 +171,28 @@ function displayDelimiter {
 # display error message
 function displayErrorMsg {
     if [ -n "$1" ]; then
-        displayHeader "${actionHeaders[error]}";
-        echo -e "${appDefaults[padding]}$(echo "$1" | sed -e "s/.\{70\}/&\n${appDefaults[padding]}/g")";
+        displayTitle;
+        displayHeader "${actionHeaders[ERROR]}";
+        echo -e "${appDefaults[padding]}$(echo "$1" | sed -E "s/${regexps[errLength]}/&\n${appDefaults[padding]}/g")";
         displayDelimiter;
         [ -n "$status" ] && status="${statusFlags[FAIL]}";
+    else
+        return 1;
+    fi
+}
+
+# display loader
+function displayLoader {
+    if [ -n "$1" ]; then
+        local leftPad;
+        local vertPad;
+        leftPad=$((COLUMNS/2+${#1}/2));
+        vertPad="$(for i in $(seq 1 $((LINES/2-2))); do echo -n '\n'; done)";
+
+        displayTitle;
+        printf "$vertPad%${leftPad}s%s...$vertPad" "$1";
+        displayDelimiter;
+    else
+        return 1;
     fi
 }

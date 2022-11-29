@@ -36,13 +36,20 @@ if [ -n "$1" ]; then
     [ -f "$moduleConf" ] && source "$moduleConf" 2> /dev/null || exitProc "$moduleConf not found" 1;
 
     # set uuid file
-    declare -n storage="$1" 2> /dev/null;
-    [ ${#storage[@]} -eq 0 ] && exitProc 'storage name not found' 1;
-    storageUuid="${storage[recovery]}";
+    for rawPlatform in "${platforms[@]}"
+    do
+        declare -A platform="$rawPlatform";
+
+        if [ "${platform[type]}" == "$EXT" ]; then
+            [ "${platform[recovery]}" == "$1" ] && break;
+        fi
+    done
+
+    [ ${#platform[@]} -eq 0 ] && exitProc 'storage name not found' 1;
+    storageUuid="${platform[recovery]}";
     uuidFile="$distDir/${files[uuid]}";
     echo "$storageUuid" > "$uuidFile";
     [ -f "$uuidFile" ] || exitProc "$uuidFile file not found" 1;
-    unset -n storage;
 
     exitProc "software successfully build to directory ./$distDir " 0;
 else
